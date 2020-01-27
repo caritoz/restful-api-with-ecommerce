@@ -1,0 +1,64 @@
+###############################################################################
+#                          Generated on phpdocker.io                          #
+###############################################################################
+version: "3.1"
+services:
+  # CACHE [REDIS]
+  cache:
+    image: redis:alpine
+    container_name: aires-dashboard-redis
+  # DATABASE [MYSQL]
+  database:
+    image: mysql:8.0
+    container_name: aires-dashboard-mysql
+    env_file: .env
+    working_dir: /src
+    restart: unless-stopped
+    volumes:
+      - ./phpdocker/dbdata:/var/lib/mysql
+    command: "--default-authentication-plugin=mysql_native_password"
+    environment:
+      - MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+      - MYSQL_DATABASE=$MYSQL_DATABASE
+      - MYSQL_USER=$MYSQL_USER
+      - MYSQL_PASSWORD=$MYSQL_PASSWORD
+    ports:
+      - "1062:3306"
+  # WEBSERVER [NGINX]
+  webserver:
+    # image: nginx:alpine
+    container_name: aires-dashboard-webserver
+    env_file: .env
+    build: ./phpdocker/nginx
+    entrypoint: /usr/local/bin/entrypoint.sh # SH for nginx conf
+    working_dir: /src
+    volumes:
+      - ./src:/src
+      # - ./phpdocker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "1060:80"
+  # APP [PHP]
+  php-fpm:
+    env_file: .env
+    build: phpdocker/php-fpm
+    entrypoint: /usr/local/bin/entrypoint.sh
+    container_name: aires-dashboard-php-fpm
+    working_dir: /src
+    volumes:
+      - ./src:/src
+      - ./phpdocker/php-fpm/php-ini-overrides.ini:/etc/php/7.3/fpm/conf.d/99-overrides.ini
+  # MANAGER FOR DATABASE [PHPMYADMIN]
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: aires-dashboard-phpmyadmin
+    env_file: .env
+    restart: always
+    depends_on:
+      - database
+    ports:
+      - "1063:80"
+    environment:
+      PMA_HOST: database
+      MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
+      MYSQL_USER: $MYSQL_USER
+      MYSQL_PASSWORD: $MYSQL_PASSWORD
